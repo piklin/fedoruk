@@ -8,11 +8,39 @@
 #include <arpa/inet.h>
 
 #define SERVER_PORT 2345
-#define TEMP_TAR_NAME "tmp_cprem.tar"
 #define KEY "_!_END_PATH_!_"
-#define BUF_SIZE 5000
-#define TAR_COMMAND "tar -cvf "
-#define RM_COMMAND "rm "
+#define BUF_SIZE 128
+#define TAR_COMMAND "tar -cvf - "
+
+char *itoa(int val, int base){
+    static char buf[32] = {0};
+    int i = 30;
+    for(; val && i ; --i, val /= base)
+        buf[i] = "0123456789abcdef"[val % base];
+    return &buf[i+1];
+}
+
+char *get_path_with_key(char *path) {
+    char *path_key = malloc(BUF_SIZE * sizeof(char));
+    memcpy(path_key, path, strlen(path));
+    memcpy(path_key + strlen(path), KEY, strlen(KEY));
+    memset(path_key + strlen(path) + strlen(KEY), '-', BUF_SIZE - strlen(path) - strlen(KEY));
+    return path_key;
+}
+
+char *get_tar_command(char *path, int fd) {
+
+    char *sym = " >&";
+    char *fd_str = itoa(fd, 10);
+    char *tar_command = calloc(strlen(TAR_COMMAND) + strlen(path) + strlen(sym) + strlen(fd_str) + 1, sizeof(char));
+
+    memcpy(tar_command, TAR_COMMAND, strlen(TAR_COMMAND));
+    memcpy(tar_command + strlen(TAR_COMMAND), path, strlen(path));
+    memcpy(tar_command + strlen(TAR_COMMAND) + strlen(path), sym, strlen(sym));
+    memcpy(tar_command + strlen(TAR_COMMAND) + strlen(path) + strlen(sym), fd_str, strlen(fd_str));
+
+    return tar_command;
+}
 
 char *get_ip_address(char *str) {
     char *pos = strchr(str, '@');
@@ -42,7 +70,7 @@ int connect_to_srv(char *ip_addr_str) {
     memset((void *)&addr, '\0', sizeof(addr));
 
     if (inet_aton(ip_addr_str, &addr.sin_addr) < 0) {
-        printf("неправильный адрес\n");
+        printf("Invalid ip address\n");
         return -1;
     }
     addr.sin_family = AF_INET;
@@ -55,7 +83,7 @@ int connect_to_srv(char *ip_addr_str) {
 
     if (connect(socket_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
         close(socket_fd);
-        printf("ошибка при подключении\n");
+        printf("Connecting error\n");
         return -1;
     }
     return socket_fd;
@@ -63,7 +91,7 @@ int connect_to_srv(char *ip_addr_str) {
 
 int main(int argc, char **argv) {
     if (argc != 3) {
-        printf("Неверный формат аргументов\n");
+        printf("Invalid args format\n");
         exit(EXIT_FAILURE);
     }
 
@@ -80,75 +108,19 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    size_t len = strlen(argv[1]) + strlen(TEMP_TAR_NAME) + strlen(TAR_COMMAND);
-    char tar_command[len + 2];
-    memcpy(tar_command, TAR_COMMAND, strlen(TAR_COMMAND));
-    memcpy(tar_command + strlen(TAR_COMMAND), TEMP_TAR_NAME, strlen(TEMP_TAR_NAME));
-    tar_command[strlen(TAR_COMMAND) + strlen(TEMP_TAR_NAME)] = ' ';
-    memcpy(tar_command + strlen(TAR_COMMAND) + strlen(TEMP_TAR_NAME) + 1, argv[1], strlen(argv[1]));
-    tar_command[len + 1] = '\0';
-    printf("%s", tar_command);
+    char *buf = get_path_with_key(path_dst);
+    ssize_t res = write(fd, buf, strlen(buf));
+    if (res != strlen(buf)) {
+        printf("Error writing to server!\n");
+        close(fd);
+        return -1;
+    }
 
-    char rm_command[strlen(TEMP_TAR_NAME) + strlen(RM_COMMAND) + 1];
-    memcpy(rm_command, RM_COMMAND, strlen(RM_COMMAND));
-    memcpy(rm_command + strlen(RM_COMMAND), TEMP_TAR_NAME, strlen(TEMP_TAR_NAME));
-    rm_command[strlen(TEMP_TAR_NAME) + strlen(RM_COMMAND)] = '\0';
-
+    char *tar_command = get_tar_command(argv[1], fd);
     system(tar_command);
 
-    FILE *file=fopen(TEMP_TAR_NAME, "r");
-    if (file == NULL) {
-        printf("fileread\n");
-        close(fd);
-        free(ip);
-        free(path_dst);
-        return -1;
-    }
-
-    char *buf = calloc(BUF_SIZE, sizeof(char));
-    memcpy(buf, path_dst, strlen(path_dst));
-    memcpy(buf + strlen(path_dst), KEY, strlen(KEY));
-    ssize_t res = write(fd, buf, strlen(KEY) + strlen(path_dst));
-    if (res != strlen(KEY) + strlen(path_dst)) {
-        free(buf);
-        printf("write path\n");
-        fclose(file);
-        close(fd);
-        free(ip);
-        free(path_dst);
-        return -1;
-    }
-
-    int sum = 0;
-    size_t res_read = 0;
-    while (res) {
-        res_read = fread(buf, sizeof(char), BUF_SIZE, file);
-        res = write(fd, buf, res_read);
-        printf("res_read %d, res %d\n", res_read, res);
-        sum += res;
-        if (res != res_read) {
-            fclose(file);
-            close(fd);
-            free(buf);
-            free(ip);
-            free(path_dst);
-            return -1;
-        }
-    }
-
-    printf("sum %d\n", sum);
-    fclose(file);
-    free(ip);
-    free(path_dst);
-
-    system(rm_command);
-
-    res = read(fd, buf, BUF_SIZE);
-    if (res != 0) {
-        printf("Result: %s\n", buf);
-    }
+    printf("Sent!\n");
     close(fd);
-
     return 0;
 }
 

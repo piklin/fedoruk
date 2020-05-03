@@ -1,0 +1,5 @@
+srv: server.c
+	gcc -o srv server.c
+
+clt: client.c
+	gcc -o clt client.c
