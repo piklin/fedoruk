@@ -183,7 +183,7 @@ int main() {
     }
 
     children = calloc(MAX_CLIENTS, sizeof(int));
-    signal(SIGSTOP, stop);
+    signal(SIGTERM, stop);
     printf("%d", getpid());
 
     while (1) {
@@ -193,4 +193,3 @@ int main() {
         }
     }
 }
-
