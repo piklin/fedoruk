@@ -71,19 +71,19 @@ char *get_untar_command(char *path, int fd) {
 char *get_path(char *buf) {
     char *start_key = strstr(buf, KEY);
     if (start_key == NULL) {
-        fprintf(stdout, "no path in data\n");
+        fprintf(stderr, "no path in data\n");
         return NULL;
     }
 
     size_t len = start_key - buf;
     char *path = calloc(len + 1, sizeof(char));
     if (path == NULL) {
-        fprintf(stdout, "calloc error\n");
+        fprintf(stderr, "calloc error\n");
         return NULL;
     }
     char *res = memcpy(path, buf, len);
     if (res == NULL) {
-        fprintf(stdout, "memcpy error\n");
+        fprintf(stderr, "memcpy error\n");
         return NULL;
     }
     return path;
@@ -107,7 +107,10 @@ int accept_file(int fd) {
     }
 
     char *untar_command = get_untar_command(path, fd);
-    system(untar_command);
+    res = system(untar_command);
+    if (res) {
+        fprintf(stderr, "tar error\n");
+    }
 
     free(buf);
     free(untar_command);
@@ -122,7 +125,7 @@ int new_accept_file_process(int fd) {
         fprintf(stderr, "fork error\n");
         return -1;
     }
-    if (cpid == 0) {        //ребенок
+    if (cpid == 0) {
         accept_file(fd);
         close(fd);
         del_pid(getpid());
@@ -184,7 +187,6 @@ int main() {
 
     children = calloc(MAX_CLIENTS, sizeof(int));
     signal(SIGTERM, stop);
-    printf("%d", getpid());
 
     while (1) {
         if (accept_client_and_take_file(srv_fd) < 0) {

@@ -117,9 +117,12 @@ int main(int argc, char **argv) {
     }
 
     char *tar_command = get_tar_command(argv[1], fd);
-    system(tar_command);
-
-    printf("Sent!\n");
+    res = system(tar_command);
+    if (!res) {
+        printf("Sent!\n");
+    } else {
+        printf("Tar error!\n");
+    }
     close(fd);
     return 0;
 }
