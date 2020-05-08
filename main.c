@@ -1,13 +1,13 @@
 #include "main.h"
 
-int is_ok_knot(ssize_t m, ssize_t n){
+int is_ok_knot(ssize_t m, ssize_t n) {                          //провнрка, есть ли такая ячейка
     if (m >= 0 && m < M && n >= 0 && n < N) {
         return 1;
     }
     return 0;
 }
 
-int volts_solver(size_t m, size_t n) {
+int volts_solver(size_t m, size_t n) {                          //решатель для источника напряжения
     for (size_t i = 0; i < grid.v_count; i++) {
         if (grid.volts[i].x == m && grid.volts[i].y == n) {
             grid.cur[m][n] = grid.volts->U;
@@ -17,7 +17,7 @@ int volts_solver(size_t m, size_t n) {
     return 0;
 }
 
-int currs_solver(ssize_t m, ssize_t n) {
+int currs_solver(ssize_t m, ssize_t n) {                        //решатель для источника тока
     for (size_t i = 0; i < grid.c_count; i++) {
         if (grid.currs[i].x == m && grid.currs[i].y == n) {
             size_t k = 0;
@@ -45,7 +45,7 @@ int currs_solver(ssize_t m, ssize_t n) {
     return 0;
 }
 
-void point_solver(size_t i) {
+void point_solver(size_t i) {                                       //решатель для узла
     size_t m = i / N;
     size_t n = i % N;
     if (!currs_solver(m, n) && !volts_solver(m, n)) {
@@ -71,7 +71,7 @@ void point_solver(size_t i) {
     }
 }
 
-void *solver(void *arg) {
+void *solver(void *arg) {                                              //решатель для узлов в зоне ответственности потока
     Thread *thread = (Thread *) arg;
     while (!is_done) {
         for (size_t i = thread->start; i <= thread->end; i++) {
@@ -82,7 +82,7 @@ void *solver(void *arg) {
     return NULL;
 }
 
-int grid_inicialize(Grid *g) {
+int grid_inicialize(Grid *g) {                                          //инициализация сетки и источников
     g->prev = calloc(M, sizeof(double *));
     g->cur = calloc(M, sizeof(double *));
     g->prev[0] = (double *)calloc(M * N, sizeof(double));
@@ -127,16 +127,16 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    size_t threads_count = atoi(argv[1]);
-    size_t tm = atoi(argv[2]);
-    M = atoi(argv[3]);
-    N = atoi(argv[4]);
+    size_t threads_count = atol(argv[1]);
+    size_t tm = atol(argv[2]);
+    M = atol(argv[3]);
+    N = atol(argv[4]);
 
-    if (grid_inicialize(&grid) < 0) {
+    if (grid_inicialize(&grid) < 0) {                   //инициализация сетки и источников
         exit(EXIT_FAILURE);
     }
 
-    FILE *gnuplot = popen("gnuplot -persist", "w");
+    FILE *gnuplot = popen("gnuplot -persist", "w");     //графики
     if (gnuplot == NULL) {
         printf("gnuplot error\n");
         exit(EXIT_FAILURE);
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
 
     is_done = 0;
     for (size_t i = 0; i < tm; i++) {
-        pthread_barrier_wait(&barr);
+        pthread_barrier_wait(&barr);                        //барьер для ожидания потоков
         if (!is_done) {
             fprintf(gnuplot, "set dgrid3d %zu,%zu\n", N, M);
             fprintf(gnuplot, "set mxtics (1)\n");
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
             fprintf(gnuplot, "e\n");
             fflush(gnuplot);
         }
-        double **tmp = grid.prev;
+        double **tmp = grid.prev;                           //меняем prev и cur для новой итерации
         grid.prev = grid.cur;
         grid.cur = tmp;
     }

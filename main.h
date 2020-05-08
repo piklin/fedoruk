@@ -12,19 +12,19 @@ typedef struct {
     pthread_t tid;
     int start;
     int end;
-} Thread;
+} Thread;                   //потоки
 
 typedef struct {
     double U;
     size_t x;
     size_t y;
-} VoltS;
+} VoltS;                    //структура для источников напряжения
 
 typedef struct {
     double I;
     size_t x;
     size_t y;
-} CurrS;
+} CurrS;                    //структура для источников тока
 
 typedef struct {
     double **prev;
@@ -33,15 +33,15 @@ typedef struct {
     CurrS *currs;
     size_t v_count;
     size_t c_count;
-} Grid;
+} Grid;                     //структура для сетки
 
 
 int is_done;
-size_t M;
-size_t N;
-double R = 1;
-double h = 0.1;
-double C = 0.5;
+size_t M;                   //длина
+size_t N;                   //ширина
+double R = 1;               //сопротивление резисторов
+double h = 0.1;             //шаг
+double C = 0.5;             //емкость конденсаторов
 Grid grid;
 
 Thread *threads;
