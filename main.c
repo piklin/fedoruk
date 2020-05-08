@@ -8,38 +8,105 @@
 #include <arpa/inet.h>
 
 #define SRV_PORT 12345
-#define BUF_LEN 16
+#define BUF_LEN 4
+#define READ_BUF_LEN 16
 
 void flush_stdin() {
     char c;
     while ((c = getchar()) != '\n' && c != EOF) { }     //чистим stdin
 }
 
-int read_move(int fd, char *buf) {
-    printf("ход противника: ");
+int read_shot(char *buf) {
+    char *read_buf = malloc(READ_BUF_LEN);
+    size_t len = READ_BUF_LEN;
+
+    printf("стреляю: ");
     fflush(stdout);
-    int res = read(fd, buf, BUF_LEN);                   //читаем ход противника
-    if (res == 0 || !strcmp(buf, "stop\n")) {           //проверка данных
-        printf("\nигра окончена\n");
-        return -1;
+    while(1) {
+        ssize_t res = getline(&read_buf, &len, stdin);
+        if (res == 3 && read_buf[0] >= 'a' && read_buf[0] <= 'h' && read_buf[1] >= '1' && read_buf[1] <= '8') {
+            buf[1] = read_buf[0];
+            buf[2] = read_buf[1];
+            free(read_buf);
+            return 0;
+        }
+        printf("неверный формат! Повторите ввод\nстреляю: ");
+        fflush(stdout);
     }
-    printf("%s", buf);                                  //выводим ход противника
-    memset(buf, '\0', res);                              //чистим буфер
-    return 0;
 }
 
-int write_move(int fd, char *buf) {                     //чтение
-    printf("мой ход: ");
-    fflush(stdout);                                     //"проталкиваем" stdout
+int read_move(char *buf) {
+    char read_buf[BUF_LEN];
     size_t len = BUF_LEN;
-    int res = getline(&buf, &len, stdin);               //считываем ход
-    if (!strcmp(buf, "stop\n") || res == 0) {           //проверяем ход на корректность
-        write(fd, "stop\n", strlen("stop\n"));
-        printf("\nигра окончена\n");
+
+    while(1) {
+        ssize_t res = getline(&buf, &len, stdin);
+        if (!strcmp(buf, "мимо\n")) {
+            buf[0] = 'M';
+            return 0;
+        } else if (!strcmp(buf, "ранил\n")) {
+            buf[0] = 'R';
+            return 1;
+        } else if (!strcmp(buf, "убил\n")) {
+            buf[0] = 'K';
+            return 1;
+        } else if (!strcmp(buf, "stop\n")) {
+            buf[0] = 'S';
+            return 2;
+        } else {
+            printf("неверный формат! Повторите ввод\nЯ: ");
+            fflush(stdout);
+        }
+    }
+}
+
+int move(int fd, char *buf) {
+    printf("Противник: ");
+    fflush(stdout);
+    ssize_t res = read(fd, buf, BUF_LEN);
+    if (res == 0) {                                     //проверка данных
+        printf("\nОшибка передечи данных!\n");
         return -1;
     }
-    write(fd, buf, strlen(buf));                        //отправляем ход противнику
-    memset(buf, '\0', res);                             //чистим буфер
+
+    if (buf[0] == 'M' || buf[0] == 'N') {
+        if (buf[0] == 'M') {
+            printf("мимо, ");
+        }
+        printf("cтреляю %c%c.\nЯ: ", buf[1], buf[2]);
+        fflush(stdout);
+        memset(buf, '\0', BUF_LEN);
+
+        res = read_move(buf);
+        if (res == 0) {
+            read_shot(buf);
+        } else if (res == 1) {
+            buf[1] = 'N';
+            buf[2] = 'N';
+        } else {
+            write(fd, buf, BUF_LEN);
+            printf("Игра окончена! Вы проиграли!\n");
+            return 1;
+        }
+    } else {
+        if (buf[0] == 'S') {
+            printf("Игра окончена! Вы победили!\n");
+            return 1;
+        }
+        if (buf[0] == 'R') {
+            printf("ранил.\n");
+        } else if (buf[0] == 'K') {
+            printf("убил.\n");
+        }
+        memset(buf, '\0', BUF_LEN);
+
+        printf("Я: ");
+        fflush(stdout);
+        buf[0] = 'N';
+        read_shot(buf);
+    }
+    write(fd, buf, BUF_LEN);                        //отправляем ход противнику
+    memset(buf, '\0', BUF_LEN);                             //чистим буфер
     return 0;
 }
 
@@ -96,10 +163,7 @@ int server() {                              //функция игры как с�
     char *buf = calloc(BUF_LEN, sizeof(char));
     //flush_stdin();
     while(1) {                                      //цикл игры
-        if (read_move(client_fd, buf) < 0) {
-            break;
-        }
-        if (write_move(client_fd, buf) < 0) {
+        if (move(client_fd, buf) != 0) {
             break;
         }
     }
@@ -140,11 +204,14 @@ int client() {                          //функция игры как кли�
 
     char *buf = calloc(BUF_LEN, sizeof(char));
     flush_stdin();
-    while(1) {
-        if (write_move(socket_fd, buf) < 0) {       //получаем ход противника
-            break;
-        }
-        if (read_move(socket_fd, buf) < 0) {        //отправляем свой ход
+    buf[0] = 'N';
+    printf("Я: ");
+    fflush(stdout);
+    read_shot(buf);
+    write(socket_fd, buf, BUF_LEN);                 //отправляем ход противнику
+    memset(buf, '\0', BUF_LEN);
+    while(1) {                                      //цикл игры
+        if (move(socket_fd, buf) != 0) {
             break;
         }
     }
