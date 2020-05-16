@@ -16,22 +16,22 @@
 #define BOTTOM_EDGE_TYPE 2
 #define BOTTOM_EDGE_VALUE 0
 
-#define M 6       //длина
-#define N 6      //ширина
 #define START_T 0   //стартовая температура пластины
-#define TIME 1000   //время расчета
 #define dx 1
 #define dy 1
 #define dt 0.1
+size_t M;               //длина
+size_t N;               //ширина
+size_t TIME;            //время расчета
 
 
-void write_res_to_file(int fd, double *arr) {
+void write_res_to_file(FILE *f, double *arr) {
     for(size_t i = 0; i < M; i++) {
         for(size_t k = 0; k < N; k++) {
-            dprintf(fd, "%zu %zu %lf\n", i, k, arr[i * N + k]);
+            fprintf(f, "%zu %zu %lf\n", i, k, arr[i * N + k]);
         }
     }
-    dprintf(fd, "\n");
+    fprintf(f, "\n");
 }
 
 void send_line(double *prev, double *top_line, double *bottom_line, int myrank, int total) {
@@ -108,23 +108,34 @@ int solver(double *prev, double *curr, double *top_line, double *bottom_line, in
 }
 
 int main(int argc, char **argv) {
-    int myrank;
-    int total;
 
-
-    int result_file = open("result.txt", O_WRONLY | O_CREAT | S_IWRITE);
+    FILE *result_file = fopen("result", "w+");
     if (result_file < 0) {
         exit(EXIT_FAILURE);
     }
 
+    int myrank;
+    int total;
     MPI_Init (&argc, &argv);
     MPI_Comm_size (MPI_COMM_WORLD, &total);
     MPI_Comm_rank (MPI_COMM_WORLD, &myrank);
+
+    TIME = atoll(argv[1]);
+    M = atoll(argv[2]);
+    N = atoll(argv[3]);
+    if (M % total != 0) {
+        if (!myrank) {
+            printf("Wrong length");
+        }
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
 
     int len = N / total;
     double *matrix = NULL;
     if(!myrank) {
         matrix = malloc(M * N * sizeof(double));
+        printf("Calculation...\n");
     }
 
     double *curr = malloc(N * len * sizeof(double));
@@ -135,11 +146,8 @@ int main(int argc, char **argv) {
     for(size_t i = 0; i < len; i++) {
         for(size_t k = 0; k < N; k++) {
             prev[i * N + k] = START_T;
-            printf("%lf ", prev[i * N + k]);
         }
-        printf("\n");
     }
-    printf("-----ok\n---\n");
 
     for (size_t i = 0; i < TIME; i++) {
         send_line(prev, top_line, bottom_line, myrank, total);
@@ -151,19 +159,48 @@ int main(int argc, char **argv) {
 
         if(!myrank) {
             write_res_to_file(result_file, matrix);
-            printf("__--___--___\n");
-            for(size_t i = 0; i < M; i++) {
-                for (size_t k = 0; k < N; k++) {
-                    printf("%lf ", matrix[i * N + k]);
-                }
-                printf("\n");
+        }
+    }
+    free(matrix);
+    free(curr);
+    free(prev);
+    free(top_line);
+    free(bottom_line);
+    if(myrank) {
+        MPI_Finalize();
+        exit(0);
+    }
+    printf("Calculated!\n");
+
+    size_t m = 0;
+    size_t n = 0;
+    double d = 0;
+    fseek(result_file, 0, SEEK_SET);
+
+    FILE *gnuplot = popen("gnuplot -persist", "w");     //графики
+    if (gnuplot == NULL) {
+        printf("gnuplot error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (!myrank) {
+        fprintf(gnuplot, "set dgrid3d %zu %zu \n", M, N);
+        fprintf(gnuplot, "set hidden3d\n");
+        fprintf(gnuplot,"set xrange[0:%zu]\nset yrange[0:%zu]\n", M, N);
+        for(int i = 0; i < TIME;i++) {
+            fprintf(gnuplot, "splot '-' u 1:2:3 with lines\n");
+            for(size_t i = 0; i < M * N; i++) {
+                fscanf(result_file, "%zu %zu %lf", &m, &n, &d);
+                fprintf(gnuplot, "%zu %zu %lf\n", m, n, d);
             }
-            printf("__--___--___\n");
+            fprintf(gnuplot, "e\n");
+            fflush(gnuplot);
+            fprintf(gnuplot,"pause(0.1)\n");
         }
     }
 
-
-    close(result_file);
+    fclose(result_file);
+    fclose(gnuplot);
     MPI_Finalize();
     return 0;
 }
