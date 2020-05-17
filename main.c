@@ -5,13 +5,13 @@
 #include <mpi.h>
 
 #define LEFT_EDGE_TYPE 1
-#define LEFT_EDGE_VALUE 30
+#define LEFT_EDGE_VALUE 0
 
 #define RIGHT_EDGE_TYPE 2
-#define RIGHT_EDGE_VALUE 5
+#define RIGHT_EDGE_VALUE -150
 
-#define TOP_EDGE_TYPE 1
-#define TOP_EDGE_VALUE 70
+#define TOP_EDGE_TYPE 2
+#define TOP_EDGE_VALUE 0
 
 #define BOTTOM_EDGE_TYPE 2
 #define BOTTOM_EDGE_VALUE 0
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    int len = N / total;
+    int len = M / total;
     double *matrix = NULL;
     if(!myrank) {
         matrix = malloc(M * N * sizeof(double));
@@ -183,10 +183,11 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
+    printf("%zu %zu\n", M, N);
     if (!myrank) {
-        fprintf(gnuplot, "set dgrid3d %zu %zu \n", M, N);
+        fprintf(gnuplot, "set dgrid3d %zu, %zu \n", N, M);
         fprintf(gnuplot, "set hidden3d\n");
-        fprintf(gnuplot,"set xrange[0:%zu]\nset yrange[0:%zu]\n", M, N);
+        fprintf(gnuplot,"set xrange[0:%zu]\nset yrange[0:%zu]\n", M- 1, N - 1);
         for(int i = 0; i < TIME;i++) {
             fprintf(gnuplot, "splot '-' u 1:2:3 with lines\n");
             for(size_t i = 0; i < M * N; i++) {
