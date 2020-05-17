@@ -24,9 +24,14 @@ int read_shot(char *buf) {
     fflush(stdout);
     while(1) {
         ssize_t res = getline(&read_buf, &len, stdin);
-        if (res == 3 && read_buf[0] >= 'a' && read_buf[0] <= 'h' && read_buf[1] >= '1' && read_buf[1] <= '8') {
+        if (read_buf[0] >= 'a' && read_buf[0] <= 'j' && read_buf[1] >= '1' && read_buf[1] <= '9' && read_buf[2] == '\n') {
             buf[1] = read_buf[0];
             buf[2] = read_buf[1];
+            free(read_buf);
+            return 0;
+        } else if (read_buf[0] >= 'a' && read_buf[0] <= 'j' && read_buf[1] >= '1' && read_buf[2] >= '0' && read_buf[3] == '\n') {
+            buf[1] = read_buf[0];
+            buf[2] = 0;
             free(read_buf);
             return 0;
         }
@@ -73,7 +78,11 @@ int move(int fd, char *buf) {
         if (buf[0] == 'M') {
             printf("мимо, ");
         }
-        printf("cтреляю %c%c.\nЯ: ", buf[1], buf[2]);
+        if (buf[2] == 0) {
+            printf("cтреляю %c10.\nЯ: ", buf[1]);
+        } else {
+            printf("cтреляю %c%c.\nЯ: ", buf[1], buf[2]);
+        }
         fflush(stdout);
         memset(buf, '\0', BUF_LEN);
 
