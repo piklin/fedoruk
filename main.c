@@ -200,6 +200,8 @@ int main(int argc, char **argv) {
         grid.prev = grid.cur;
         grid.cur = tmp;
     }
-    pclose(gnuplot);
+    if (GRAPH) {
+        pclose(gnuplot);
+    }
     return 0;
 }
