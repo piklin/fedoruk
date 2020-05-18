@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#define GRAPH 0
+
 typedef struct {
     pthread_t tid;
     int start;

@@ -170,25 +170,27 @@ int main(int argc, char **argv) {
     is_done = 0;
     for (size_t i = 0; i < tm; i++) {
         pthread_barrier_wait(&barr);                        //барьер для ожидания потоков
-        if (!is_done) {
-            fprintf(gnuplot, "set dgrid3d %zu,%zu\n", N, M);
-            fprintf(gnuplot, "set mxtics (1)\n");
-            fprintf(gnuplot, "set mytics (1)\n");
-            fprintf(gnuplot, "set ticslevel 0\n");
-            fprintf(gnuplot, "set hidden3d\n");
-            fprintf(gnuplot, "set isosample 80\n");
-            fprintf(gnuplot, "set zlabel \"U\"\n");
-            fprintf(gnuplot, "set ylabel \"M\"\n");
-            fprintf(gnuplot, "set xlabel \"N\"\n");
-            fprintf(gnuplot, "splot '-' u 1:2:3 with lines\n");
+        if (GRAPH) {
+            if (!is_done) {
+                fprintf(gnuplot, "set dgrid3d %zu,%zu\n", N, M);
+                fprintf(gnuplot, "set mxtics (1)\n");
+                fprintf(gnuplot, "set mytics (1)\n");
+                fprintf(gnuplot, "set ticslevel 0\n");
+                fprintf(gnuplot, "set hidden3d\n");
+                fprintf(gnuplot, "set isosample 80\n");
+                fprintf(gnuplot, "set zlabel \"U\"\n");
+                fprintf(gnuplot, "set ylabel \"M\"\n");
+                fprintf(gnuplot, "set xlabel \"N\"\n");
+                fprintf(gnuplot, "splot '-' u 1:2:3 with lines\n");
 
-            for (size_t x = 0; x < M; x++) {
-                for (size_t y = 0; y < N; y++) {
-                    fprintf(gnuplot, "%zu %zu %lf\n", x, y, grid.cur[x][y]);
+                for (size_t x = 0; x < M; x++) {
+                    for (size_t y = 0; y < N; y++) {
+                        fprintf(gnuplot, "%zu %zu %lf\n", x, y, grid.cur[x][y]);
+                    }
                 }
+                fprintf(gnuplot, "e\n");
+                fflush(gnuplot);
             }
-            fprintf(gnuplot, "e\n");
-            fflush(gnuplot);
         }
         double **tmp = grid.prev;                           //меняем prev и cur для новой итерации
         grid.prev = grid.cur;
