@@ -1,2 +1,1 @@
-# fedoruk
-third course, Fedoruk's labs
+Lab1 trud, var 41
