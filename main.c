@@ -5,13 +5,13 @@
 #include <mpi.h>
 
 #define LEFT_EDGE_TYPE 1
-#define LEFT_EDGE_VALUE 0
+#define LEFT_EDGE_VALUE 70
 
 #define RIGHT_EDGE_TYPE 2
-#define RIGHT_EDGE_VALUE -150
+#define RIGHT_EDGE_VALUE 0
 
-#define TOP_EDGE_TYPE 2
-#define TOP_EDGE_VALUE 0
+#define TOP_EDGE_TYPE 1
+#define TOP_EDGE_VALUE 20
 
 #define BOTTOM_EDGE_TYPE 2
 #define BOTTOM_EDGE_VALUE 0
