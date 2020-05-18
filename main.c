@@ -119,6 +119,7 @@ int grid_inicialize(Grid *g) {                                          //ини
     g->volts[1].x = 7;
     g->volts[1].y = N - 6;
     g->volts[1].U = 110;
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -136,10 +137,13 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    FILE *gnuplot = popen("gnuplot -persist", "w");     //графики
-    if (gnuplot == NULL) {
-        printf("gnuplot error\n");
-        exit(EXIT_FAILURE);
+    FILE *gnuplot = NULL;
+    if (GRAPH) {
+        gnuplot = popen("gnuplot -persist", "w");     //графики
+        if (gnuplot == NULL) {
+            printf("gnuplot error\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     pthread_attr_t pattr;
