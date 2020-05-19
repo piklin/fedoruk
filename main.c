@@ -74,10 +74,11 @@ void point_solver(size_t i) {                                       //решат
 void *solver(void *arg) {                                              //решатель для узлов в зоне ответственности потока
     Thread *thread = (Thread *) arg;
     while (!is_done) {
+        pthread_barrier_wait(&barr1);
         for (size_t i = thread->start; i <= thread->end; i++) {
             point_solver(i);
         }
-        pthread_barrier_wait(&barr);
+        pthread_barrier_wait(&barr2);
     }
     return NULL;
 }
@@ -173,7 +174,7 @@ int main(int argc, char **argv) {
 
     is_done = 0;
     for (size_t i = 0; i < tm; i++) {
-        pthread_barrier_wait(&barr);                        //барьер для ожидания потоков
+        pthread_barrier_wait(&barr1);                        //барьер для ожидания потоков
         if (GRAPH) {
             if (!is_done) {
                 fprintf(gnuplot, "set dgrid3d %zu,%zu\n", N, M);
@@ -196,6 +197,7 @@ int main(int argc, char **argv) {
                 fflush(gnuplot);
             }
         }
+        pthread_barrier_wait(&barr2);
         double **tmp = grid.prev;                           //меняем prev и cur для новой итерации
         grid.prev = grid.cur;
         grid.cur = tmp;

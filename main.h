@@ -47,7 +47,7 @@ double C = 0.5;             //емкость конденсаторов
 Grid grid;
 
 Thread *threads;
-pthread_barrier_t barr;
+pthread_barrier_t barr1, barr2;
 
 int is_ok_knot(ssize_t m, ssize_t n);
 int volts_solver(size_t m, size_t n);
