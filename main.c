@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define h 0.5
+#define h 0.01
 #define M 2
-#define N 4
-#define dt 1
+#define N 8
+#define dt 0.5
 #define TIME 15
 #define K 1
 #define Tb 100
@@ -64,6 +64,16 @@ int main() {
     size_t cm = (size_t)(M / h + 1);
     size_t cn = (size_t)(N / h + 1);
 
+    FILE *gnuplot = popen("gnuplot -persist", "w");
+    if (gnuplot == NULL) {
+        printf("gnuplot error\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(gnuplot,  "set cbrange [0:100]\nset yrange [0:%zu]\nset xrange [0:%zu]\nset size ratio %d\n", N, M, N/M);
+    fprintf(gnuplot, "set palette defined ( 0 0 0 1, 0.2 0 1 1, 0.4 0 1 0, 0.6 1 1 0, 0.8 1 0.6471 0, 1 1 0 0 )\n"
+                     "set pm3d scansforward ftriangles map \n");
+    fprintf(gnuplot, "splot '-'\n");
+
 
     double *matrix = malloc(cm * cn * sizeof(double));
     for (size_t i = 0; i < cm; i++) {
@@ -75,16 +85,21 @@ int main() {
 
     for (size_t i = 0; i < TIME / dt; i++) {
         solver(matrix);
-        for (int i = 0; i < cn; i++) {
-            for (int k = 0; k < cm; k++) {
-                printf("%lf\t", matrix[i * cm + k]);
-            }
-            printf("\n");
-        }
-        printf("\n\n");
     }
 
-    return 0;
 
+    for(int i = 0; i <= cn; i++) {
+        int p = cn - i - 1;
+        for (size_t k = 0; k <= cm; k++) {
+            fprintf(gnuplot, "%lf %lf %lf\n", k * h, p * h, matrix[i * cm + k]);
+            //fprintf(stdout, "%zu %zu %lf\n", k, p, matrix[i * cm + k]);
+        }
+        fprintf(gnuplot, "\n");
+    }
+    fprintf(gnuplot, "e\n");
+    fflush(gnuplot);
+    //fprintf(gnuplot,"pause(0.2)\n");
+
+    return 0;
 }
 
