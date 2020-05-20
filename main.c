@@ -16,6 +16,8 @@
 #define BOTTOM_EDGE_TYPE 2
 #define BOTTOM_EDGE_VALUE 0
 
+#define POINT_VALUE 5
+
 #define START_T 0   //стартовая температура пластины
 #define dx 1
 #define dy 1
@@ -23,6 +25,8 @@
 size_t M;               //длина
 size_t N;               //ширина
 size_t TIME;            //время расчета
+
+#define GRAPH 0
 
 
 void write_res_to_file(FILE *f, double *arr) {
@@ -71,7 +75,7 @@ int solver(double *prev, double *curr, double *top_line, double *bottom_line, in
                 if (TOP_EDGE_TYPE == 1) {
                     curr[k] = TOP_EDGE_VALUE;
                 } else if (TOP_EDGE_TYPE == 2) {
-                    curr[k] = curr[(i) * N + k] - dy * TOP_EDGE_VALUE;
+                    curr[k] = curr[(i) * N + k] - dx * TOP_EDGE_VALUE;
                 }
             }
             if (i == M / total - 2 && myrank == total - 1) {
@@ -102,7 +106,7 @@ int solver(double *prev, double *curr, double *top_line, double *bottom_line, in
     }
     if (myrank == total - 1) {
         curr[(M / total - 1) * N] = curr[(M / total - 1) * N + 1];
-        curr[(M / total) * N - 1] = curr[(M / total) * N - 2];
+        curr[(M / total) * N - 1] = (curr[(M / total) * N - 2] * dx + curr[(M / total - 1) * N - 1] * dy + POINT_VALUE * dx * dy) / (dx + dy);
     }
     return 0;
 }
@@ -171,6 +175,12 @@ int main(int argc, char **argv) {
         exit(0);
     }
     printf("Calculated!\n");
+
+    if (!GRAPH) {
+        fclose(result_file);
+        MPI_Finalize();
+        return 0;
+    }
 
     size_t m = 0;
     size_t n = 0;
