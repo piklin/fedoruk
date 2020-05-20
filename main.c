@@ -160,9 +160,10 @@ int main(int argc, char **argv) {
         double *tmp = prev;
         prev = curr;
         curr = tmp;
-
-        if(!myrank) {
-            write_res_to_file(result_file, matrix);
+        if(GRAPH) {
+            if (!myrank) {
+                write_res_to_file(result_file, matrix);
+            }
         }
     }
     free(matrix);
@@ -177,6 +178,7 @@ int main(int argc, char **argv) {
     printf("Calculated!\n");
 
     if (!GRAPH) {
+        write_res_to_file(result_file, matrix);
         fclose(result_file);
         MPI_Finalize();
         return 0;
