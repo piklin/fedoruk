@@ -1,22 +1,48 @@
-#include <iostream>
 #include <vector>
+#include <cmath>
+#include <iostream>
 
-//граничные условия
-double u_0 = 0;
-double du_n = 1;
-double start_x = 3;
-double end_x = 14;
-//////////////////////////////////////// граничные меняй
+// Настройки
+bool is_cube = false;
+size_t elements_count = 10;
 
+// задание ГУ
+double du_0 = -5;
+double u_n = 10;
+double start_x = 2;
+double end_x = 7;
+
+// Вспомогательное
+double element_len = (end_x - start_x) / elements_count;
+
+double A_local_linear[2][2] = {{1 / element_len + 7 * element_len / 6,      -1 / element_len + 7 * element_len / 12},
+                               {-1 / element_len + 7 * element_len / 12,    1 / element_len + 7 * element_len / 6}};
+double b_local_linear[2] =     {3 * element_len / 4,                        3 * element_len / 4};
+
+double A_local_cube[4][4] =
+        {{37 / (10 * element_len) + 4 * element_len / 15, -189 / (40 * element_len) + 33 * element_len / 160, 27 / (20 * element_len) - 3 * element_len / 40, -13 / (40 * element_len) + 19 * element_len / 480},
+         {-189 / (40 * element_len) + 33 * element_len / 160, 54 / (5 * element_len) + 27 * element_len / 20, -297 / (40 * element_len) - 27 * element_len / 160, 27 / (20 * element_len) - 3 * element_len / 40},
+         {27 / (20 * element_len) - 3 * element_len / 40, -297 / (40 * element_len) + -27 * element_len / 160, 54 / (5 * element_len) + 27 * element_len / 20, -189 / (40 * element_len) + 33 * element_len / 160},
+         {-13 / (40 * element_len) + 19 * element_len / 480, 27 / (20 * element_len) - 3 * element_len / 40, -189 / (40 * element_len) + 33 * element_len / 160, 37 / (10 * element_len) + 4 * element_len / 15}};
+double b_local_cube[4] = {3 * element_len / 16, 9 * element_len / 16, 9 * element_len / 16, 3 * element_len / 16};
+
+// Точное решение
+std::vector<double> solution() {
+    std::vector<double> result(elements_count + 1);
+    for (size_t i = 0; i < elements_count + 1; i++) {
+        double x = start_x + i * element_len;
+        result[i] = 3.0/7 + (67*exp(7*sqrt(14)/2) + 5*sqrt(14)*exp(6*sqrt(14)))*exp(-x*sqrt(14)/2)/(7*(1 + exp(5*sqrt(14)))) + (-5*sqrt(14) + 67*exp(5*sqrt(14)/2))*exp(-sqrt(14))*exp(x*sqrt(14)/2)/(7*(1 + exp(5*sqrt(14))));
+    }
+    return result;
+}
 
 template <typename T>
 class Matrix {
 public:
     Matrix(size_t rows, size_t cols, T value);
-
-    void print();
+    Matrix(const Matrix<T> &matrix);
+    std::vector<T> tridiagonal_matrix_algorithm(std::vector<T> &b);
     T& get_elem(size_t r, size_t c);
-    std::vector<T> gauss(std::vector<T> &b);
 private:
     std::vector<std::vector<T>> data;
     size_t rows;
@@ -32,13 +58,7 @@ Matrix<T>::Matrix(size_t rows, size_t cols, T value) : rows(rows), cols(cols) {
 }
 
 template <typename T>
-void Matrix<T>::print() {
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t j = 0; j < cols; j++) {
-            std::cout << data[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
+Matrix<T>::Matrix(const Matrix<T> &matrix) : rows(matrix.rows), cols(matrix.cols), data(matrix.data) {
 }
 
 template <typename T>
@@ -47,186 +67,133 @@ T& Matrix<T>::get_elem(size_t r, size_t c) {
 }
 
 template <typename T>
-std::vector<T> Matrix<T>::gauss(std::vector<T> &b) {
-    double p = 0;
-    for (size_t i = 0; i < this->rows; i++) {
-        for (size_t j = i + 1; j < this->cols; j++) {
-            if (fabs(this->data[j][i]) < 1e-16) {
-                continue;
-            }
-            p = this->data[j][i] / this->data[i][i];
-            b[j] -= p * b[i];
-            for (size_t k = 0; k < this->rows; k++) {
-                this->data[j][k] -= p * this->data[i][k];
-            }
-        }
+std::vector<T> Matrix<T>::tridiagonal_matrix_algorithm(std::vector<T> &b) {
+
+    size_t n = this->rows;
+    std::vector<T> alpha(n);
+    std::vector<T> beta(n);
+
+    alpha[0] = -this->data[0][1] / this->data[0][0];
+    beta[0] = b[0] / this->data[0][0];
+
+
+    for (size_t i = 1; i < n - 1; i++) {
+        double y = this->data[i][i] + this->data[i][i - 1] * alpha[i - 1];
+        alpha[i] = -this->data[i][i + 1] / y;
+        beta[i] = (b[i] - this->data[i][i - 1] * beta[i - 1]) / y;
+    }
+    double y = this->data[n - 1][n - 1] + this->data[n - 1][n - 2] * alpha[n - 2];
+    beta[n - 1] = (b[n - 1] - this->data[n - 1][n - 2] * beta[n - 2]) / y;
+
+    std::vector<T> x(n);
+    x[n - 1] = beta[n - 1];
+    for (ssize_t i = n - 2; i >= 0; i--) {
+        x[i] = alpha[i] * x[i + 1] + beta[i];
     }
 
-
-    std::vector<T> res(this->rows);
-    for (int i = this->rows - 1; i >= 0; i--) {
-        res[i] = b[i];
-        for (size_t j = i + 1; j < this->rows; j++) {
-            res[i] -= res[j] * this->data[i][j];
-        }
-        res[i] /= this->data[i][i];
-    }
-
-    return res;
+    return x;
 }
 
-std::vector<double> solution_for_linear(size_t elements_count) {
+std::vector<double> linear() {
 
-    double len = (end_x - start_x) / elements_count;
-
-    Matrix<double> matrix(elements_count + 1, elements_count + 1, 0);
-    std::vector<double> b(elements_count + 1);
-    //тут матрица
-    double l[2][2] = {{5.0 * len + 1.0 / len,       5.0 * len / 2.0 - 1.0 / len},
-                      {5.0 * len / 2.0 - 1.0 / len, 5.0 * len + 1.0 /len}};
-////////////////////////////////////////матрицу меняй
+    // Получение матрицы A ансамблированием и учет граничных условий
+    Matrix<double> A(elements_count + 1, elements_count + 1, 0);
     for (size_t i = 0; i < elements_count; i++) {
         for (size_t j = 0; j < 2; j++) {
             for (size_t k = 0; k < 2; k++) {
-                matrix.get_elem(i + j, i + k) += l[j][k];
+                A.get_elem(i + j, i + k) += A_local_linear[j][k];
             }
         }
     }
+    A.get_elem(elements_count, elements_count) = 1;
+    A.get_elem(elements_count - 1, elements_count) = 0;
 
-    //тут учитываются граничные условия
-    matrix.get_elem(0, 0) = 1;
-    matrix.get_elem(1, 0) = 0;
-    b[0] = 2 * len - l[0][0] * u_0;
-    b[1] = 4 * len - l[1][0] * u_0;
-    for (size_t i = 2; i < elements_count; i++) {
-        b[i] = 4 * len;
+    // Получение вектора b и учет граничных условий
+    std::vector<double> b(elements_count + 1);
+    for (size_t i = 1; i < elements_count - 1; i++) {
+        b[i] = b_local_linear[0] + b_local_linear[1];
     }
-    b[elements_count] = 2 * len + du_n;
-    ////////////////////////////////////////граничные меняй
+    b[0] = b_local_linear[0] - du_0;
+    b[elements_count - 1] = b_local_linear[0] + b_local_linear[1] - A_local_linear[0][1] * u_n;
+    b[elements_count] = b_local_linear[1] - A_local_linear[1][1] * u_n;
 
-    //решаем слау
-    std::vector<double> result = matrix.gauss(b);
-    result[0] = u_0;
-    return result;
+    // Решение СЛАУ Ax=b
+    std::vector<double> x = A.tridiagonal_matrix_algorithm(b);
+    x[elements_count] = u_n;
+    return x;
 }
 
-std::vector<double> solution_for_cube(size_t elements_count) {
+std::vector<double> cube() {
 
-    double len = (end_x - start_x) / elements_count;
-////////////////////////////////////////матрицы меняй
-    double l_b[4] = {len / 2., 3 * len / 2., 3 * len / 2., len/ 2.};
-    double l[4][4] =
-            {{  37. / (10 * len) + 15 * 8 * len / 105.,
-                     -189. / (40 * len) + 15 * 33 * len / 560.,
-                     27. / (20 * len) - 15 * 3 * len / 140.,
-                     -13. / (40 * len) + 15 * 19 *len / 1680.},
-             {   -189. / (40 * len) + 15 * 33 * len / 560.,
-                     54. / (5 * len) + 15 * 27 * len / 70.,
-                     -297. / (40 * len) + -27 * 15 * len / 560.,
-                     27. / (20 * len) - 15 * 3 * len / (140.)},
-             {   27. / (20 * len) - 15 * 3 * len / 140.,
-                     -297. / (40 * len) - 15 * 27 * len / 560.,
-                     54. / (5 * len) + 15 * 27 * len / 70.,
-                     -189. / (40 * len) + 15 * 33 * len / 560.},
-             {   -13. / (40 * len) + 15 * 19 * len / 1680.,
-                     27. / (20 * len) - 15 * 3 * len / 140.,
-                     -189. / (40 * len) + 15 * 33 * len / 560.,
-                     37. / (10 * len) + 15 * 8 * len / 105.}};
-
-
-    // Исключение внутренних элементов и получение матриц без них
-    double p;
+    // Приведение с момощью метода Гаусса локальной матрицы к виду,
+    // необходимому для исключения внутренних элементов
     for (size_t i = 1; i < 3; i++) {
         for (size_t j = 0; j < 4; j++) {
-            if (fabs(l[j][i]) < 1e-16) {
+            if (i == j | fabs(A_local_cube[j][i]) < 1e-16) {
                 continue;
             }
-            if (i == j) {
-                continue;
-            }
-            p = l[j][i] / l[i][i];
-            l_b[j] -= p * l_b[i];
+            double piv = A_local_cube[j][i] / A_local_cube[i][i];
+            b_local_cube[j] -= piv * b_local_cube[i];
             for (size_t k = 0; k < 4; k++) {
-                l[j][k] -= p * l[i][k];
+                A_local_cube[j][k] -= piv * A_local_cube[i][k];
             }
         }
     }
-    double small_l[2][2] = {{l[0][0], l[0][3]},
-                            {l[3][0], l[3][3]}};
-    double small_b[2] = {l_b[0], l_b[3]};
 
-    // Создаем и заполняем матрицу и вектор b
+    // Получение матрицы A ансамблированием и учет граничных условий
     Matrix<double> matrix(elements_count + 1, elements_count + 1, 0);
     for (size_t i = 0; i < elements_count; i++) {
-        for (size_t j = 0; j < 2; j++) {
-            for (size_t k = 0; k < 2; k++) {
-                matrix.get_elem(i + j,i + k) += small_l[j][k];
-            }
-        }
+        matrix.get_elem(i, i) += A_local_cube[0][0];
+        matrix.get_elem(i + 1, i) += A_local_cube[3][0];
+        matrix.get_elem(i, i + 1) += A_local_cube[0][3];
+        matrix.get_elem(i + 1, i + 1) += A_local_cube[3][3];
     }
+    matrix.get_elem(elements_count, elements_count) = 1;
+    matrix.get_elem(elements_count - 1, elements_count) = 0;
 
+    // Получение вектора b и учет граничных условий
     std::vector<double> b(elements_count + 1);
-    for (size_t i = 2; i < elements_count; i++) {
-        b[i] = small_b[1] + small_b[0];
+    for (size_t i = 1; i < elements_count - 1; i++) {
+        b[i] = b_local_cube[0] + b_local_cube[3];
     }
-    b[elements_count] = small_b[1] + du_n;
+    b[0] = b_local_cube[0] - du_0;
+    b[elements_count] = b_local_cube[3] - A_local_cube[3][3] * u_n;
+    b[elements_count - 1] = b_local_cube[0] + b_local_cube[3] - A_local_cube[0][3] * u_n;
 
-    // Накладываем граничные условия
-    matrix.get_elem(0, 0) = 1;
-    matrix.get_elem(1, 0) = 0;
-    b[0] = small_b[0] - small_l[0][0] * u_0;
-    b[1] = small_b[1] + small_b[0] - small_l[1][0] * u_0;
-    ////////////////////////////////////////граничные меняй
-
-    // Решаем слау
-    std::vector<double> result = matrix.gauss(b);
-    result[0] = u_0;
-    return result;
+    // Решение СЛАУ Ax=b
+    std::vector<double> x = matrix.tridiagonal_matrix_algorithm(b);
+    x[elements_count] = u_n;
+    return x;
 }
 
-std::vector<double> exact_solution(size_t elements_count) {
-    double len = (end_x - start_x) / (elements_count);
+void print_graph(std::vector<double> &res_y, std::string graph_mame) {
+    std::vector<double> x(elements_count + 1);
+    for (size_t i = 0; i < res_y.size(); i++) {
+        x[i] = start_x + i * element_len;
+    }
+    std::vector<double> y = solution();
 
-    std::vector<double> res(elements_count + 1);
+    FILE* gnuplot = popen("gnuplot -persist", "w");
+
+    fprintf(gnuplot, "$mfe_res << EOD\n");
     for (size_t i = 0; i < elements_count + 1; i++) {
-        double x = start_x + i * len;
-        res[i] = -29649.312 * exp(-sqrt(15) * x) + 7.30701889e-25 * exp(sqrt(15) * x) + 4.0 / 15.0;
-        ////////////////////////////////////////точное меняй меняй
+        fprintf(gnuplot, "%lf %lf\n", x[i], res_y[i]);
     }
-    return res;
-}
+    fprintf(gnuplot, "EOD\n");
 
-void print_graph(std::vector<double> &mke_y, std::string graph_mame) {
-    std::vector<double> x(mke_y.size());
-    double len = (end_x - start_x) / (mke_y.size() - 1);
-    for (size_t i = 0; i < mke_y.size(); i++) {
-        x[i] = start_x + i * len;
+    fprintf(gnuplot, "$exact << EOD\n");
+    for (size_t i = 0; i < elements_count + 1; i++) {
+        fprintf(gnuplot, "%lf %lf\n", x[i], y[i]);
     }
-    std::vector<double> exact_y = exact_solution(mke_y.size() - 1);
+    fprintf(gnuplot, "EOD\n");
 
-    FILE* gp = popen("gnuplot -persist", "w");
-
-    fprintf(gp, "$mke_res << EOD\n");
-    for (size_t i = 0; i < mke_y.size(); i++) {
-        fprintf(gp, "%lf %lf\n", x[i], mke_y[i]);
-    }
-    fprintf(gp, "EOD\n");
-
-    fprintf(gp, "$exact << EOD\n");
-    for (size_t i = 0; i < mke_y.size(); i++) {
-        fprintf(gp, "%lf %lf\n", x[i], exact_y[i]);
-    }
-    fprintf(gp, "EOD\n");
-
-    fprintf(gp, "set title '%s' font \"Helvetica,20\" lt 3 lw 5\n", graph_mame.c_str());
-    fprintf(gp, "plot '$mke_res' using 1:2 with lines title 'exact (%zu elements)' lc rgb \"red\" lw 1, '$exact' using 1:2 with lines title 'MKE (%zu elements)',\n", mke_y.size() - 1, mke_y.size() - 1);
-    fflush(gp);
-    fclose(gp);
+    fprintf(gnuplot, "set grid\n set title '%s' font \"Helvetica,16\" lt 3 lw 5\n", graph_mame.c_str());
+    fprintf(gnuplot, "plot '$mfe_res' using 1:2 with lines title 'MFE (%zu elements)' lc rgb \"blue\" lw 1, '$exact' using 1:2 with lines title 'exact (%zu elements)',\n", elements_count, elements_count);
+    fflush(gnuplot);
 }
 
 double max_error(std::vector<double> y) {
-    std::vector<double> exact_y = exact_solution(y.size() - 1);
-
+    std::vector<double> exact_y = solution();
     double max = 0;
     for (size_t i = 0; i < y.size(); i++) {
         double error = fabs(y[i] - exact_y[i]);
@@ -238,21 +205,19 @@ double max_error(std::vector<double> y) {
 }
 
 int main() {
-    std::cout << "Enter elements count and type (lin = 0, cube = 1)" << std::endl;
-    size_t elements_count = 0, type = 0;
-    std::cin >> elements_count >> type;
-
+    std::cout << "Погнали нахуй!!!!!!!" << std::endl;
     std::vector<double> res;
-    if (!type) {
-        res = solution_for_linear(elements_count);
-        print_graph(res, "Linear and exact");
+    if (!is_cube) {
+        res = linear();
+        print_graph(res, std::string("Linear"));
     } else {
-        res = solution_for_cube(elements_count);
-        print_graph(res, "Cube and exact");
+        res = cube();
+        print_graph(res, std::string("Cube"));
     }
 
-    std::cout << "max error " << max_error(res) << std::endl;
-
+    std::cout << "Max error between points " << max_error(res) << std::endl;
     return 0;
 }
-
+//10:
+// max error 0.139618
+// max error 1.20512e-05
