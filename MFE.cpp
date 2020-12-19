@@ -3,8 +3,8 @@
 #include <iostream>
 
 // Настройки
-bool is_cube = false;
-size_t elements_count = 10;
+bool is_cube = true;
+size_t elements_count = 1000;
 
 // задание ГУ
 double du_0 = -5;
@@ -42,6 +42,7 @@ public:
     Matrix(size_t rows, size_t cols, T value);
     Matrix(const Matrix<T> &matrix);
     std::vector<T> tridiagonal_matrix_algorithm(std::vector<T> &b);
+    std::vector<T> fast_tridiagonal_matrix_algorithm(std::vector<T> &b);
     T& get_elem(size_t r, size_t c);
 private:
     std::vector<std::vector<T>> data;
@@ -94,6 +95,38 @@ std::vector<T> Matrix<T>::tridiagonal_matrix_algorithm(std::vector<T> &b) {
     return x;
 }
 
+template <typename T>
+std::vector<T> Matrix<T>::fast_tridiagonal_matrix_algorithm(std::vector<T> &b) {
+
+    size_t n = 4;
+    std::vector<T> alpha(elements_count + 1);
+    std::vector<T> beta(elements_count + 1);
+///
+    alpha[0] = -this->data[0][1] / this->data[0][0];
+    beta[0] = b[0] / this->data[0][0];
+
+    for (size_t i = 1; i < elements_count - 1; i++) {
+        double y = this->data[1][1] + this->data[1][0] * alpha[i - 1];
+        alpha[i] = -this->data[1][2] / y;
+        beta[i] = (b[1] - this->data[1][0] * beta[i - 1]) / y;
+    }
+
+    double y = this->data[n - 2][n - 2] + this->data[n - 2][n - 3] * alpha[elements_count - 2];
+    alpha[elements_count - 1] = -this->data[n - 2][n - 1] / y;
+    beta[elements_count - 1] = (b[n - 2] - this->data[n - 2][n - 3] * beta[elements_count + 1 - 3]) / y;
+
+    y = this->data[n - 1][n - 1] + this->data[n - 1][n - 2] * alpha[elements_count - 1];
+    beta[elements_count] = (b[n - 1] - this->data[n - 1][n - 2] * beta[elements_count - 1]) / y;
+///
+    std::vector<T> x(elements_count + 1);
+    x[elements_count] = beta[elements_count];
+    for (ssize_t i = elements_count - 1; i >= 0; i--) {
+        x[i] = alpha[i] * x[i + 1] + beta[i];
+    }
+
+    return x;
+}
+
 std::vector<double> linear() {
 
     // Получение матрицы A ансамблированием и учет граничных условий
@@ -119,6 +152,33 @@ std::vector<double> linear() {
 
     // Решение СЛАУ Ax=b
     std::vector<double> x = A.tridiagonal_matrix_algorithm(b);
+    x[elements_count] = u_n;
+    return x;
+}
+
+std::vector<double> fast_linear() {
+
+    // Получение матрицы A ансамблированием и учет граничных условий
+    Matrix<double> A(4, 4, 0);
+    for (size_t i = 0; i < 3; i++) {
+        for (size_t j = 0; j < 2; j++) {
+            for (size_t k = 0; k < 2; k++) {
+                A.get_elem(i + j, i + k) += A_local_linear[j][k];
+            }
+        }
+    }
+    A.get_elem(3, 3) = 1;
+    A.get_elem(2, 3) = 0;
+
+    // Получение вектора b и учет граничных условий
+    std::vector<double> b(4);
+    b[0] = b_local_linear[0] - du_0;
+    b[1] = b_local_linear[0] + b_local_linear[1];
+    b[2] = b_local_linear[0] + b_local_linear[1] - A_local_linear[0][1] * u_n;
+    b[3] = b_local_linear[1] - A_local_linear[1][1] * u_n;
+
+    // Решение СЛАУ Ax=b
+    std::vector<double> x = A.fast_tridiagonal_matrix_algorithm(b);
     x[elements_count] = u_n;
     return x;
 }
@@ -166,6 +226,47 @@ std::vector<double> cube() {
     return x;
 }
 
+std::vector<double> fast_cube() {
+
+    // Приведение с момощью метода Гаусса локальной матрицы к виду,
+    // необходимому для исключения внутренних элементов
+    for (size_t i = 1; i < 3; i++) {
+        for (size_t j = 0; j < 4; j++) {
+            if (i == j | fabs(A_local_cube[j][i]) < 1e-16) {
+                continue;
+            }
+            double piv = A_local_cube[j][i] / A_local_cube[i][i];
+            b_local_cube[j] -= piv * b_local_cube[i];
+            for (size_t k = 0; k < 4; k++) {
+                A_local_cube[j][k] -= piv * A_local_cube[i][k];
+            }
+        }
+    }
+
+    // Получение матрицы A ансамблированием и учет граничных условий
+    Matrix<double> matrix(4, 4, 0);
+    for (size_t i = 0; i < 3; i++) {
+        matrix.get_elem(i, i) += A_local_cube[0][0];
+        matrix.get_elem(i + 1, i) += A_local_cube[3][0];
+        matrix.get_elem(i, i + 1) += A_local_cube[0][3];
+        matrix.get_elem(i + 1, i + 1) += A_local_cube[3][3];
+    }
+    matrix.get_elem(3, 3) = 1;
+    matrix.get_elem(2, 3) = 0;
+
+    // Получение вектора b и учет граничных условий
+    std::vector<double> b(4);
+    b[0] = b_local_cube[0] - du_0;
+    b[1] = b_local_cube[0] + b_local_cube[3];
+    b[2] = b_local_cube[0] + b_local_cube[3] - A_local_cube[0][3] * u_n;
+    b[3] = b_local_cube[3] - A_local_cube[3][3] * u_n;
+
+    // Решение СЛАУ Ax=b
+    std::vector<double> x = matrix.fast_tridiagonal_matrix_algorithm(b);
+    x[elements_count] = u_n;
+    return x;
+}
+
 void print_graph(std::vector<double> &res_y, std::string graph_mame) {
     std::vector<double> x(elements_count + 1);
     for (size_t i = 0; i < res_y.size(); i++) {
@@ -188,7 +289,7 @@ void print_graph(std::vector<double> &res_y, std::string graph_mame) {
     fprintf(gnuplot, "EOD\n");
 
     fprintf(gnuplot, "set grid\n set title '%s' font \"Helvetica,16\" lt 3 lw 5\n", graph_mame.c_str());
-    fprintf(gnuplot, "plot '$mfe_res' using 1:2 with lines title 'MFE (%zu elements)' lc rgb \"blue\" lw 1, '$exact' using 1:2 with lines title 'exact (%zu elements)',\n", elements_count, elements_count);
+    fprintf(gnuplot, "plot '$mfe_res' using 1:2 with lines title 'MFE %zu elements' lc rgb \"blue\" lw 1, '$exact' using 1:2 with lines title 'exact %zu elements',\n", elements_count, elements_count);
     fflush(gnuplot);
 }
 
@@ -205,19 +306,15 @@ double max_error(std::vector<double> y) {
 }
 
 int main() {
-    std::cout << "Погнали нахуй!!!!!!!" << std::endl;
     std::vector<double> res;
     if (!is_cube) {
-        res = linear();
+        res = fast_linear();
         print_graph(res, std::string("Linear"));
     } else {
-        res = cube();
+        res = fast_cube();
         print_graph(res, std::string("Cube"));
     }
 
     std::cout << "Max error between points " << max_error(res) << std::endl;
     return 0;
 }
-//10:
-// max error 0.139618
-// max error 1.20512e-05
