@@ -3,8 +3,8 @@
 #include <iostream>
 
 // Настройки
-bool is_cube = true;
-size_t elements_count = 1000;
+bool is_cube = false;
+size_t elements_count = 80000;
 
 // задание ГУ
 double du_0 = -5;
@@ -67,6 +67,7 @@ T& Matrix<T>::get_elem(size_t r, size_t c) {
     return data[r][c];
 }
 
+//метод прогонки
 template <typename T>
 std::vector<T> Matrix<T>::tridiagonal_matrix_algorithm(std::vector<T> &b) {
 
@@ -95,6 +96,7 @@ std::vector<T> Matrix<T>::tridiagonal_matrix_algorithm(std::vector<T> &b) {
     return x;
 }
 
+// ускоренный метод прогонки
 template <typename T>
 std::vector<T> Matrix<T>::fast_tridiagonal_matrix_algorithm(std::vector<T> &b) {
 
@@ -126,6 +128,7 @@ std::vector<T> Matrix<T>::fast_tridiagonal_matrix_algorithm(std::vector<T> &b) {
 
     return x;
 }
+
 
 std::vector<double> linear() {
 
@@ -309,10 +312,10 @@ int main() {
     std::vector<double> res;
     if (!is_cube) {
         res = fast_linear();
-        print_graph(res, std::string("Linear"));
+        //print_graph(res, std::string("Linear"));
     } else {
         res = fast_cube();
-        print_graph(res, std::string("Cube"));
+        //print_graph(res, std::string("Cube"));
     }
 
     std::cout << "Max error between points " << max_error(res) << std::endl;
